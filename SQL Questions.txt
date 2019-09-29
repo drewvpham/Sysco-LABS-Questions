@@ -1,0 +1,43 @@
+SQL Questions
+
+Please provide sql that would answer the following questions. Feel free to use whatever resources you may need to answer the questions. My thought is that this would take no more than 30 minutes for you to complete. After I receive your queries, I will set up a 15-minute call with you to discuss your thought process.
+
+Given a table with monthly transactions (customer id, month, payment) and a table with customer info (type 2 dimension) (id, cust_id, plan type, num users, start_date, end_date):
+
+1) tell me how much customers pay per month, per plan ($, month, plan type)
+
+SELECT Sales.month as SalesMonth, SUM(Sales.payment) AS MonthlySales, CustomerInfo.plan_type AS PlanType FROM Sales INNER JOIN CustomerInfo
+ON Sales.customer_id=CustomerInfo.cust_id
+GROUP BY MonthlySales, SalesMonth, PlanType ORDER BY MonthlySales, PlanType
+
+
+
+1b) tell me what the top grossing plan is each month (month, $, plan)
+
+SELECT SalesMonth, PlanType, MonthlySales FROM ( SELECT x.*, ROW_NUMBER() OVER(PARTITION BY as SalesMonth ORDER BY MonthlySales desc) rn
+FROM ( SELECT Sales.month as SalesMonth, CustomerInfo.plan_type AS PlanType, SUM(Sales.payment) AS MonthlySales
+FROM Sales INNER JOIN CustomerInfo ON Sales.customer_id = CustomerInfo.cust_id GROUP BY Sales.month, CustomerInfo.plan_type ) x ) y WHERE rn = 1
+
+
+2) Given the above tables tell me how many customers we bring on every month (month, plan, # new customers)
+with C as
+(SELECT plan_type, start_date, ROW_NUMBER() over(partition by cust_id order by start_date) as rn
+FROM CustomerInfo)
+SELECT plan_type, MONTH(start_date) as StartMonth, count(*) as NewCustomers
+FROM CustomerInfo
+WHERE rn = 1
+#you only want the first time each CustomerInfo appears in the table
+GROUP BY plan_type, month(start_date)
+
+or potentially:
+
+SELECT Month, COUNT(*)
+FROM (SELECT customer_id, MIN(MONTH(start_date)) AS Month
+FROM CustomerInfo GROUP BY customer_id) 
+GROUP BY Month, plan_type
+
+
+3) Given the above tables, tell me how many people switch plans per month (month, from plan to plan, # customers)
+SELECT MONTH(start_date), COUNT(DISTINCT( customer_id))
+FROM CustomerInfo
+GROUP BY MONTH(start_date) having COUNT(DISTINCT(plan_type)) > 1
